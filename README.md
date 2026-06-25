@@ -23,14 +23,17 @@ Implemented:
 - Minimal in-memory EventBus with `tool.invoked` events
 - `/stackyan` storage layout creation
 - Serial logging and `/stackyan/logs/tool.log` append
+- Face/Avatar state tools exposed through ToolRegistry
+- JSON config tools for `/stackyan/config.json`
+- Minimal sequential JSON Workflow tools
 
 Not implemented in this step:
 
 - LLM / Agent
 - XiaoZhi
 - TTS / STT
-- Avatar / face rendering
-- JSON Workflow
+- Avatar / face rendering attachment
+- Workflow conditionals / loops / event triggers
 - Dynamic plugins
 - Lua / JIT
 - OTA
@@ -41,12 +44,61 @@ Not implemented in this step:
 - `rgb.clear`
 - `servo.move`
 - `servo.home`
+- `servo.readState`
+- `servo.disableTorque`
+- `servo.stop`
 - `motion.read`
 - `power.status`
+- `storage.info`
+- `storage.exists`
+- `storage.list`
+- `storage.mkdir`
 - `storage.read`
 - `storage.write`
+- `storage.remove`
+- `config.read`
+- `config.write`
+- `config.patch`
+- `config.apply`
+- `workflow.list`
+- `workflow.read`
+- `workflow.write`
+- `workflow.wait`
+- `workflow.validate`
+- `workflow.run`
+- `face.getState`
+- `face.setExpression`
+- `face.setVowel`
+- `face.setCaption`
+- `face.clearCaption`
+- `face.setPalette`
+- `face.reset`
 
 Servo tools are marked `dangerous` in schema metadata.
+
+### State / Query Tools
+
+These tools do not primarily send control commands; they return current device, runtime, storage, config, or workflow state.
+
+- `motion.read`
+- `power.status`
+- `servo.readState`
+- `storage.info`
+- `storage.exists`
+- `storage.list`
+- `storage.read`
+- `config.read`
+- `face.getState`
+- `workflow.list`
+- `workflow.read`
+- `workflow.validate`
+
+Planned aggregate query tools:
+
+- `system.status`
+- `system.snapshot`
+
+`system.snapshot` should return a single combined view of power, motion, face state, storage, network, and tool/runtime metadata for Web UI and Agent clients.
 
 ## API
 
@@ -63,6 +115,8 @@ Returns StackYan role and v1 disabled areas.
 ### `GET /api/events`
 
 Returns recent in-memory events.
+
+This is the main query path for runtime history, including `tool.invoked`, `workflow.started`, `workflow.step`, and `workflow.finished`.
 
 ### `GET /api/tools`
 
@@ -129,6 +183,8 @@ If mDNS does not resolve while using the setup AP, connect to `StackYan-Setup` a
 http://192.168.4.1/
 ```
 
+The Web UI includes a Face Tools panel. It invokes `face.*` tools through the same `POST /api/invoke` path as every other client. The current firmware stores face state only; the real avatar renderer is intentionally attached later.
+
 ## Build
 
 ### ESP-IDF firmware
@@ -176,12 +232,18 @@ Simulator storage lives under:
 
 Simulator HAL behavior:
 
-- RGB state is printed to the console.
-- Servo horizontal/vertical angles are retained and printed.
+- RGB state is shown in the Web UI and printed to the console.
+- Servo horizontal/vertical angles are retained and shown in the Web UI.
 - Motion returns deterministic dummy values.
 - Power returns deterministic dummy battery values.
 - Storage maps to the local `./sd` folder.
 - SDL/GFX window is not implemented yet; the current simulator uses HTTP UI plus console output.
+
+Simulator-only state endpoint:
+
+```text
+GET /api/sim/state
+```
 
 ## Flash
 
@@ -202,8 +264,17 @@ Replace `PORT` with the StackChan/CoreS3 serial port.
 6. Open `http://stackyan.local/` or `http://192.168.4.1/`.
 7. Run `motion.read`.
 8. Run `power.status`.
-9. Run `rgb.set` with low brightness.
-10. Run `servo.move` only after confirming power, servo pins, and safe range.
+9. Run `storage.info`.
+10. Run `storage.write`, `storage.read`, and `storage.list` under `/stackyan/tools/smoke`.
+11. Run `config.read`.
+12. Run `config.patch` with a small `avatar` object, then `config.apply`.
+13. Run `workflow.write` with a small workflow containing `rgb.set`, `workflow.wait`, and `face.setExpression`.
+14. Run `workflow.validate` for that workflow.
+15. Run `workflow.run` for that workflow.
+16. For workflows containing dangerous tools such as `servo.move`, confirm `workflow.validate` first and pass `allow_dangerous: true` only after checking hardware safety.
+17. Run `rgb.set` with low brightness.
+18. Run `servo.move` only after confirming power, servo pins, and safe range.
+19. Run `face.setExpression` and confirm the Tool result changes state. Face rendering is not attached yet.
 
 ## Storage Layout
 
@@ -212,6 +283,7 @@ Created under HAL storage root:
 ```text
 /stackyan/config.json
 /stackyan/tools/
+/stackyan/workflows/
 /stackyan/logs/
 /stackyan/memory/
 ```
@@ -230,3 +302,4 @@ Tool calls append to:
 - Servo SCS/STS register map may need adjustment for the actual motor model.
 - Backlight path may be AXP2101 or GPIO fallback depending on board behavior.
 - Current network path starts an open setup AP; STA Wi-Fi config is not implemented yet.
+- microSD is not used yet; current storage is internal Flash FATFS via wear levelling.

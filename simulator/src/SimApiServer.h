@@ -5,14 +5,14 @@
 
 #include "cJSON.h"
 #include "EventBus.h"
-#include "IHardware.h"
+#include "SimHardware.h"
 #include "ToolRegistry.h"
 
 namespace stackyan::sim {
 
 class SimApiServer {
 public:
-    SimApiServer(stackyan::IHardware& hardware, stackyan::ToolRegistry& registry, stackyan::EventBus& events)
+    SimApiServer(SimHardware& hardware, stackyan::ToolRegistry& registry, stackyan::EventBus& events)
         : hardware_(hardware), registry_(registry), events_(events) {}
 
     bool begin(uint16_t port = 8080);
@@ -25,7 +25,7 @@ private:
     void handleJsonEndpoint(int clientFd, const std::string& method, const std::string& path, const std::string& body);
     void invokeByName(int clientFd, const char* name, cJSON* args);
 
-    stackyan::IHardware& hardware_;
+    SimHardware& hardware_;
     stackyan::ToolRegistry& registry_;
     stackyan::EventBus& events_;
 };

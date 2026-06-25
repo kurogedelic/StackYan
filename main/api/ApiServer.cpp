@@ -23,10 +23,10 @@ const char* kIndexHtml = R"HTML(
   <style>
     body { font-family: system-ui, sans-serif; margin: 16px; background: #f7f7f7; color: #222; }
     h1 { font-size: 22px; margin: 0 0 12px; }
-    .tool { background: white; border: 1px solid #ddd; padding: 12px; margin: 10px 0; border-radius: 6px; }
+    .tool, .face-panel { background: white; border: 1px solid #ddd; padding: 12px; margin: 10px 0; border-radius: 6px; }
     .name { font-weight: 700; }
     textarea { width: 100%; min-height: 90px; font-family: ui-monospace, monospace; box-sizing: border-box; }
-    button { margin-top: 8px; padding: 8px 12px; }
+    button, select, input { margin: 4px 4px 4px 0; padding: 8px 12px; }
     pre { background: #111; color: #eee; padding: 10px; overflow: auto; }
     .danger { color: #b00020; font-weight: 700; }
   </style>
@@ -34,9 +34,58 @@ const char* kIndexHtml = R"HTML(
 <body>
   <h1>StackYan Tool Test</h1>
   <p>Local, unauthenticated development UI. Use only on a trusted LAN.</p>
+  <section class="face-panel">
+    <h2>Face Tools</h2>
+    <div>
+      <select id="face-expression"></select>
+      <button onclick="setFaceExpression()">Set Expression</button>
+      <select id="face-vowel"></select>
+      <button onclick="setFaceVowel()">Set Vowel</button>
+    </div>
+    <div>
+      <input id="face-line1" value="StackYan" placeholder="caption line 1">
+      <input id="face-line2" value="Tool Server" placeholder="caption line 2">
+      <button onclick="setFaceCaption()">Set Caption</button>
+      <button onclick="invokeTool('face.clearCaption', {})">Clear Caption</button>
+      <button onclick="invokeTool('face.reset', {})">Reset</button>
+    </div>
+    <pre id="face-state"></pre>
+  </section>
   <div id="status"></div>
   <div id="tools"></div>
   <script>
+    const expressions = ["Neutral","Happy","Joy","Angry","Sad","Curious","Surprised","Shy","Thinking","Wink","Talking","Love","Panic","Proud","Sigh","Mischief","Cold","Sleepy"];
+    const vowels = ["Off","Closed","A","I","U","E","O"];
+    function fillSelect(id, values) {
+      const el = document.getElementById(id);
+      for (const value of values) el.add(new Option(value, value));
+    }
+    async function invokeToolRaw(name, args) {
+      const res = await fetch("/api/invoke", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({tool: name, args})
+      });
+      return await res.json();
+    }
+    async function invokeTool(name, args) {
+      const json = await invokeToolRaw(name, args);
+      await refreshFaceState();
+      return json;
+    }
+    async function refreshFaceState() {
+      const json = await invokeToolRaw("face.getState", {});
+      document.getElementById("face-state").textContent = JSON.stringify(json, null, 2);
+    }
+    async function setFaceExpression() {
+      await invokeTool("face.setExpression", {expression: document.getElementById("face-expression").value});
+    }
+    async function setFaceVowel() {
+      await invokeTool("face.setVowel", {vowel: document.getElementById("face-vowel").value});
+    }
+    async function setFaceCaption() {
+      await invokeTool("face.setCaption", {line1: document.getElementById("face-line1").value, line2: document.getElementById("face-line2").value});
+    }
     function sample(schema) {
       const p = (schema && schema.properties) || {};
       const out = {};
@@ -54,20 +103,20 @@ const char* kIndexHtml = R"HTML(
       const input = document.getElementById("input-" + name).value;
       const out = document.getElementById("out-" + name);
       try {
-        const res = await fetch("/api/invoke", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({tool: name, args: JSON.parse(input || "{}")})
-        });
-        out.textContent = JSON.stringify(await res.json(), null, 2);
+        const json = await invokeToolRaw(name, JSON.parse(input || "{}"));
+        out.textContent = JSON.stringify(json, null, 2);
+        await refreshFaceState();
       } catch (e) {
         out.textContent = String(e);
       }
     }
     async function load() {
+      fillSelect("face-expression", expressions);
+      fillSelect("face-vowel", vowels);
       document.getElementById("status").textContent = "Loading...";
       const status = await (await fetch("/api/status")).json();
       document.getElementById("status").innerHTML = "<pre>" + JSON.stringify(status, null, 2) + "</pre>";
+      await refreshFaceState();
       const data = await (await fetch("/api/tools")).json();
       const root = document.getElementById("tools");
       root.innerHTML = "";
@@ -234,13 +283,16 @@ esp_err_t ApiServer::sendCapabilities(httpd_req_t* req) {
     cJSON_AddStringToObject(root, "tool_invoke", "/api/invoke");
     cJSON_AddStringToObject(root, "tool_invoke_compat", "/api/tools/{name}");
     cJSON_AddStringToObject(root, "events", "/api/events");
+    cJSON_AddBoolToObject(root, "face_tools", true);
+    cJSON_AddBoolToObject(root, "workflow_tools", true);
+    cJSON_AddBoolToObject(root, "avatar_renderer_attached", false);
     cJSON* disabled = cJSON_AddArrayToObject(root, "not_implemented_v1");
     cJSON_AddItemToArray(disabled, cJSON_CreateString("llm"));
     cJSON_AddItemToArray(disabled, cJSON_CreateString("xiaozhi"));
     cJSON_AddItemToArray(disabled, cJSON_CreateString("tts"));
     cJSON_AddItemToArray(disabled, cJSON_CreateString("stt"));
-    cJSON_AddItemToArray(disabled, cJSON_CreateString("avatar"));
-    cJSON_AddItemToArray(disabled, cJSON_CreateString("workflow"));
+    cJSON_AddItemToArray(disabled, cJSON_CreateString("avatar_renderer"));
+    cJSON_AddItemToArray(disabled, cJSON_CreateString("workflow_conditionals"));
     return sendJson(req, root);
 }
 

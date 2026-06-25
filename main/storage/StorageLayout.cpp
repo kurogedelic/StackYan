@@ -19,11 +19,27 @@ bool ensureStorageLayout(stackchu::IStorage& storage) {
     bool ok = true;
     ok = storage.mkdir("/stackyan") && ok;
     ok = storage.mkdir("/stackyan/tools") && ok;
+    ok = storage.mkdir("/stackyan/workflows") && ok;
     ok = storage.mkdir("/stackyan/logs") && ok;
     ok = storage.mkdir("/stackyan/memory") && ok;
 
     if (!storage.exists("/stackyan/config.json")) {
-        const char* initial = "{\n  \"device_name\": \"stackyan\",\n  \"version\": 1\n}\n";
+        const char* initial =
+            "{\n"
+            "  \"device_name\": \"stackyan\",\n"
+            "  \"version\": 1,\n"
+            "  \"network\": {\n"
+            "    \"hostname\": \"stackyan\"\n"
+            "  },\n"
+            "  \"avatar\": {\n"
+            "    \"expression\": \"Neutral\",\n"
+            "    \"vowel\": \"Off\",\n"
+            "    \"palette\": \"default\"\n"
+            "  },\n"
+            "  \"storage\": {\n"
+            "    \"backend\": \"internal_flash_fatfs\"\n"
+            "  }\n"
+            "}\n";
         ok = storage.writeText("/stackyan/config.json", initial) && ok;
     }
 

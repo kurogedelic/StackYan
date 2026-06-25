@@ -5,6 +5,9 @@
 
 namespace stackyan {
 
-void registerBuiltinTools(ToolRegistry& registry, IHardware& hardware);
+class AvatarService;
+class EventBus;
+
+void registerBuiltinTools(ToolRegistry& registry, IHardware& hardware, AvatarService& avatar, EventBus& events);
 
 }  // namespace stackyan

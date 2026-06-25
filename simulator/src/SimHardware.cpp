@@ -21,6 +21,10 @@ std::string colorText(stackchu::Color c) {
     return buf;
 }
 
+void addColor(cJSON* array, stackchu::Color c) {
+    cJSON_AddItemToArray(array, cJSON_CreateString(colorText(c).c_str()));
+}
+
 }  // namespace
 
 void SimRgb::setPixel(uint8_t index, stackchu::Color c) {
@@ -293,6 +297,42 @@ void SimHardware::printState() const {
               << ", vertical=" << state_.servoVertical << ") motion.az="
               << state_.motion.az << " battery=" << static_cast<int>(state_.power.level) << "%"
               << std::endl;
+}
+
+cJSON* SimHardware::stateJson() const {
+    cJSON* root = cJSON_CreateObject();
+
+    cJSON* rgb = cJSON_AddObjectToObject(root, "rgb");
+    cJSON_AddNumberToObject(rgb, "brightness", state_.brightness);
+    cJSON* leds = cJSON_AddArrayToObject(rgb, "leds");
+    for (const auto& led : state_.leds) addColor(leds, led);
+
+    cJSON* servo = cJSON_AddObjectToObject(root, "servo");
+    cJSON_AddNumberToObject(servo, "horizontal", state_.servoHorizontal);
+    cJSON_AddNumberToObject(servo, "vertical", state_.servoVertical);
+
+    cJSON* motion = cJSON_AddObjectToObject(root, "motion");
+    cJSON_AddBoolToObject(motion, "valid", state_.motion.valid);
+    cJSON_AddNumberToObject(motion, "ax", state_.motion.ax);
+    cJSON_AddNumberToObject(motion, "ay", state_.motion.ay);
+    cJSON_AddNumberToObject(motion, "az", state_.motion.az);
+    cJSON_AddNumberToObject(motion, "gx", state_.motion.gx);
+    cJSON_AddNumberToObject(motion, "gy", state_.motion.gy);
+    cJSON_AddNumberToObject(motion, "gz", state_.motion.gz);
+    cJSON_AddNumberToObject(motion, "temperature_c", state_.motion.temperatureC);
+
+    cJSON* power = cJSON_AddObjectToObject(root, "power");
+    cJSON_AddNumberToObject(power, "level", state_.power.level);
+    cJSON_AddNumberToObject(power, "battery_voltage", state_.power.batteryVoltage);
+    cJSON_AddNumberToObject(power, "battery_current_ma", state_.power.batteryCurrent);
+    cJSON_AddNumberToObject(power, "temperature_c", state_.power.temperatureC);
+    cJSON_AddBoolToObject(power, "usb_connected", state_.power.usbConnected);
+
+    cJSON* storage = cJSON_AddObjectToObject(root, "storage");
+    cJSON_AddBoolToObject(storage, "mounted", storage_.isMounted());
+    cJSON_AddStringToObject(storage, "root", storage_.root());
+
+    return root;
 }
 
 }  // namespace stackyan::sim

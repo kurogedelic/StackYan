@@ -1,4 +1,5 @@
 #include "SimApiServer.h"
+#include "SimWebUi.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -15,89 +16,6 @@
 namespace stackyan::sim {
 namespace {
 
-const char* kIndexHtml = R"HTML(
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>StackYan mac_simulator</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 16px; background: #f7f7f7; color: #222; }
-    h1 { font-size: 22px; margin: 0 0 12px; }
-    .tool { background: white; border: 1px solid #ddd; padding: 12px; margin: 10px 0; border-radius: 6px; }
-    .name { font-weight: 700; }
-    textarea { width: 100%; min-height: 90px; font-family: ui-monospace, monospace; box-sizing: border-box; }
-    button { margin-top: 8px; padding: 8px 12px; }
-    pre { background: #111; color: #eee; padding: 10px; overflow: auto; }
-    .danger { color: #b00020; font-weight: 700; }
-  </style>
-</head>
-<body>
-  <h1>StackYan mac_simulator</h1>
-  <p>Local simulator UI. All calls go through <code>POST /api/invoke</code>.</p>
-  <div id="status"></div>
-  <div id="tools"></div>
-  <h2>Events</h2>
-  <pre id="events"></pre>
-  <script>
-    function sample(schema) {
-      const p = (schema && schema.properties) || {};
-      const out = {};
-      for (const k of Object.keys(p)) {
-        if (p[k].default !== undefined) out[k] = p[k].default;
-        else if (p[k].enum) out[k] = p[k].enum[0];
-        else if (p[k].type === "integer") out[k] = p[k].minimum || 0;
-        else if (p[k].type === "number") out[k] = p[k].minimum || 0;
-        else if (p[k].type === "boolean") out[k] = false;
-        else out[k] = "";
-      }
-      return out;
-    }
-    async function refreshEvents() {
-      const events = await (await fetch("/api/events")).json();
-      document.getElementById("events").textContent = JSON.stringify(events, null, 2);
-    }
-    async function runTool(name) {
-      const input = document.getElementById("input-" + name).value;
-      const out = document.getElementById("out-" + name);
-      try {
-        const res = await fetch("/api/invoke", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({tool: name, args: JSON.parse(input || "{}")})
-        });
-        out.textContent = JSON.stringify(await res.json(), null, 2);
-        refreshEvents();
-      } catch (e) {
-        out.textContent = String(e);
-      }
-    }
-    async function load() {
-      const status = await (await fetch("/api/status")).json();
-      document.getElementById("status").innerHTML = "<pre>" + JSON.stringify(status, null, 2) + "</pre>";
-      const data = await (await fetch("/api/tools")).json();
-      const root = document.getElementById("tools");
-      root.innerHTML = "";
-      for (const tool of data.tools) {
-        const div = document.createElement("div");
-        div.className = "tool";
-        const initial = JSON.stringify(sample(tool.parameters), null, 2);
-        div.innerHTML = `<div class="name">${tool.title || tool.name} <code>${tool.name}</code> ${tool.dangerous ? '<span class="danger">dangerous</span>' : ''}</div>
-          <p>${tool.description || ""}</p>
-          <details><summary>schema</summary><pre>${JSON.stringify(tool.parameters, null, 2)}</pre></details>
-          <textarea id="input-${tool.name}">${initial}</textarea>
-          <button onclick="runTool('${tool.name}')">Run</button>
-          <pre id="out-${tool.name}"></pre>`;
-        root.appendChild(div);
-      }
-      refreshEvents();
-    }
-    load();
-  </script>
-</body>
-</html>
-)HTML";
 
 cJSON* errorJson(const char* code, const char* message) {
     cJSON* root = cJSON_CreateObject();
@@ -187,7 +105,7 @@ void SimApiServer::handleClient(int clientFd) {
     const std::string body = headerEnd == std::string::npos ? "" : req.substr(headerEnd + 4);
 
     if (method == "GET" && path == "/") {
-        sendResponse(clientFd, 200, "text/html", kIndexHtml);
+        sendResponse(clientFd, 200, "text/html", kSimIndexHtml);
     } else {
         handleJsonEndpoint(clientFd, method, path, body);
     }
@@ -232,9 +150,14 @@ void SimApiServer::handleJsonEndpoint(int clientFd, const std::string& method, c
         cJSON_AddStringToObject(root, "tool_discovery", "/api/tools");
         cJSON_AddStringToObject(root, "tool_invoke", "/api/invoke");
         cJSON_AddStringToObject(root, "events", "/api/events");
+        cJSON_AddBoolToObject(root, "face_tools", true);
+        cJSON_AddBoolToObject(root, "workflow_tools", true);
+        cJSON_AddBoolToObject(root, "avatar_renderer_attached", false);
         sendJson(clientFd, 200, root);
     } else if (method == "GET" && path == "/api/events") {
         sendJson(clientFd, 200, events_.toJson());
+    } else if (method == "GET" && path == "/api/sim/state") {
+        sendJson(clientFd, 200, hardware_.stateJson());
     } else if (method == "GET" && path == "/api/tools") {
         sendJson(clientFd, 200, registry_.toJson());
     } else if (method == "GET" && path.rfind("/api/tools/", 0) == 0) {

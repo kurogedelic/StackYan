@@ -4,6 +4,7 @@
 #include <iostream>
 #include <thread>
 
+#include "AvatarService.h"
 #include "BuiltinTools.h"
 #include "EventBus.h"
 #include "SimApiServer.h"
@@ -20,6 +21,7 @@ void onSignal(int) {
 void ensureLayout(stackchu::IStorage& storage) {
     storage.mkdir("/stackyan");
     storage.mkdir("/stackyan/tools");
+    storage.mkdir("/stackyan/workflows");
     storage.mkdir("/stackyan/logs");
     storage.mkdir("/stackyan/memory");
     if (!storage.exists("/stackyan/config.json")) {
@@ -41,11 +43,12 @@ int main() {
     }
     ensureLayout(hardware.storage());
 
-    stackyan::ToolRegistry registry;
-    stackyan::registerBuiltinTools(registry, hardware);
-
     stackyan::EventBus events;
     events.publish("system.boot", "mac_simulator");
+
+    stackyan::ToolRegistry registry;
+    stackyan::AvatarService avatar;
+    stackyan::registerBuiltinTools(registry, hardware, avatar, events);
 
     stackyan::sim::SimApiServer server(hardware, registry, events);
     if (!server.begin(8080)) return 1;

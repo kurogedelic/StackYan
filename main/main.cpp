@@ -1,4 +1,5 @@
 #include "ApiServer.h"
+#include "AvatarService.h"
 #include "BuiltinTools.h"
 #include "EventBus.h"
 #include "EspHardware.h"
@@ -30,13 +31,14 @@ extern "C" void app_main() {
 
     stackyan::ensureStorageLayout(hal.storage());
 
-    static stackyan::ToolRegistry registry;
-    static stackyan::EspHardware hardware(hal);
-    stackyan::registerBuiltinTools(registry, hardware);
-    ESP_LOGI(kTag, "registered %u tools", static_cast<unsigned>(registry.count()));
-
     static stackyan::EventBus events;
     events.publish("system.boot", "StackYan");
+
+    static stackyan::ToolRegistry registry;
+    static stackyan::EspHardware hardware(hal);
+    static stackyan::AvatarService avatar;
+    stackyan::registerBuiltinTools(registry, hardware, avatar, events);
+    ESP_LOGI(kTag, "registered %u tools", static_cast<unsigned>(registry.count()));
 
     static stackyan::NetworkManager network;
     network.begin();

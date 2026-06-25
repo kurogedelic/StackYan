@@ -2,6 +2,7 @@ idf_component_register(
     SRCS
         "main.cpp"
         "api/ApiServer.cpp"
+        "avatar/AvatarService.cpp"
         "events/EventBus.cpp"
         "network/NetworkManager.cpp"
         "storage/StorageLayout.cpp"
@@ -10,6 +11,7 @@ idf_component_register(
     INCLUDE_DIRS
         "."
         "api"
+        "avatar"
         "events"
         "hardware"
         "network"

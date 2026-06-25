@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "cJSON.h"
 #include "IHardware.h"
 
 namespace stackyan::sim {
@@ -116,6 +117,7 @@ public:
     SimHardware();
     bool begin();
     void printState() const;
+    cJSON* stateJson() const;
 
     stackchu::IServo& servo() override { return servo_; }
     stackchu::IRgb& rgb() override { return rgb_; }

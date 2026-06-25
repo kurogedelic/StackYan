@@ -12,6 +12,7 @@ add_executable(stackyan_sim
     src/SimApiServer.cpp
     src/SimHardware.cpp
     src/main.cpp
+    ../main/avatar/AvatarService.cpp
     ../main/events/EventBus.cpp
     ../main/tools/BuiltinTools.cpp
     ../main/tools/ToolRegistry.cpp
@@ -22,6 +23,7 @@ target_compile_definitions(stackyan_sim PRIVATE STACKYAN_SIMULATOR=1)
 target_include_directories(stackyan_sim PRIVATE
     src
     ../main
+    ../main/avatar
     ../main/events
     ../main/hardware
     ../main/tools
