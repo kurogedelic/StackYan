@@ -1,0 +1,29 @@
+idf_component_register(
+    SRCS
+        "main.cpp"
+        "api/ApiServer.cpp"
+        "events/EventBus.cpp"
+        "network/NetworkManager.cpp"
+        "storage/StorageLayout.cpp"
+        "tools/BuiltinTools.cpp"
+        "tools/ToolRegistry.cpp"
+    INCLUDE_DIRS
+        "."
+        "api"
+        "events"
+        "hardware"
+        "network"
+        "storage"
+        "tools"
+    REQUIRES
+        stackchu_hal
+        esp_http_server
+        esp_wifi
+        esp_netif
+        esp_event
+        mdns
+        nvs_flash
+        json
+)
+
+target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)
